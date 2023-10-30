@@ -60,7 +60,6 @@ class CreateQuiz(APIView):
                 choices = question.get("choices", [])
 
                 question_data['quiz'] = saved_quiz.id
-                # print(question_data)
                 valid, saved_question = self.save_question(question_data)
 
                 if valid:
@@ -73,15 +72,15 @@ class CreateQuiz(APIView):
                             # print("INVALID CHOICE")
                             Question.objects.get(id=saved_question.id).delete()
                             Quiz.objects.get(id=saved_quiz.id).delete()
-                            return Response(choice_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                            return Response({"error": f"Invalid choice to question ${question_data['text']}"}, status=status.HTTP_400_BAD_REQUEST)
                 else:
                     # print("INVALID QUESTION")
-                    print(saved_question.errors)
+                    # print(saved_question.errors)
                     Quiz.objects.get(id=saved_quiz.id).delete()
-                    return Response(saved_question.error_messages, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": f"Invalid question, information may be incomplete"}, status=status.HTTP_400_BAD_REQUEST)
         else:
             # print("INVALID QUIZ")
-            return Response(quiz_serializer.error_messages, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"Invalid quiz information, please try again"}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
             "data": request.data,
@@ -95,7 +94,7 @@ class EvaluateQuiz(APIView):
         total_score = 0
 
         for correct_answer in correct_answers:
-            print(correct_answer)
+            # print(correct_answer)
             user_answers_filtered = list(filter(
                 lambda x: x["question"] == correct_answer["question"], user_answers))[0]
 
@@ -104,7 +103,7 @@ class EvaluateQuiz(APIView):
                 selected_answer = list(
                     filter(lambda x: x["index"] == answer["index"] and answer["is_answer"], user_answers_filtered["answers"]))
 
-                print(selected_answer)
+                # print(selected_answer)
 
                 if len(selected_answer) == 0:
                     continue
@@ -149,47 +148,50 @@ class EvaluateQuiz(APIView):
         quiz_id = request.data.get("id")
         answers = request.data.get("userAnswers", [])
 
-        quiz = Quiz.objects.prefetch_related("questions").get(id=quiz_id)
-        serialized_quiz = QuizSerializer(quiz)
+        try: 
+            quiz = Quiz.objects.prefetch_related("questions").get(id=quiz_id)
+            serialized_quiz = QuizSerializer(quiz)
 
-        if len(answers) != len(serialized_quiz.data['questions']):
+            if len(answers) != len(serialized_quiz.data['questions']):
+                return Response({
+                    "error": "Count of answers not matching questions. Please do try again later"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            correct_answers = self.get_answers(serialized_quiz.data["questions"])
+            user_answers = self.get_user_answers(answers)
+            total_score = self.compute_score(
+                correct_answers, user_answers)
+
+            submission_data = {"quiz": quiz_id, "score": total_score}
+            submission_serializer = SubmittedAnswerSerializer(data=submission_data)
+
+            if submission_serializer.is_valid():
+                saved_submission = submission_serializer.save()
+
+                for answer in answers:
+                    for ans in answer["answer"]:
+                        ans["submission"] = saved_submission.id
+                        answer_serializer = AnswerSerializer(data=ans)
+
+                        if answer_serializer.is_valid():
+                            answer_serializer.save()
+                        else:
+                            # print(answer_serializer.errors)
+                            SubmittedAnswer.objects.get(
+                                id=saved_submission.id).delete()
+                            return Response({"error": "Invalid answer, information is insufficient"}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                # print(submission_serializer.errors)
+                return Response({"error": "Invalid submission, information may be incomplete"}, status=status.HTTP_400_BAD_REQUEST)
+
             return Response({
-                "error": "Count of answers not matching questions. Please do try again later"
-            }, status=status.HTTP_400_BAD_REQUEST)
+                "data": request.data,
+                "score": total_score,
+                "isSuccessful": True
+            })
 
-        correct_answers = self.get_answers(serialized_quiz.data["questions"])
-        user_answers = self.get_user_answers(answers)
-        total_score = self.compute_score(
-            correct_answers, user_answers)
-
-        submission_data = {"quiz": quiz_id, "score": total_score}
-        submission_serializer = SubmittedAnswerSerializer(data=submission_data)
-
-        if submission_serializer.is_valid():
-            saved_submission = submission_serializer.save()
-
-            for answer in answers:
-                for ans in answer["answer"]:
-                    ans["submission"] = saved_submission.id
-                    print(ans)
-                    answer_serializer = AnswerSerializer(data=ans)
-
-                    if answer_serializer.is_valid():
-                        answer_serializer.save()
-                    else:
-                        # print(answer_serializer.errors)
-                        SubmittedAnswer.objects.get(
-                            id=saved_submission.id).delete()
-                        return Response(answer_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            # print(submission_serializer.errors)
-            return Response(submission_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response({
-            "data": request.data,
-            "score": total_score,
-            "isSuccessful": True
-        })
+        except:
+            return Response({"error": "Quiz not found"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class DeleteQuiz(APIView):
