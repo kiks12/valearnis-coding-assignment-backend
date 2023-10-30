@@ -77,8 +77,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'quiz.wsgi.application'
 
+ALLOWED_HOSTS = [
+  "https://francisjames11.pythonanywhere.com"
+]
+
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000"
+    "http://localhost:3000",
+    "https://valearnis-coding-assignment-frontend-h31n.vercel.app",
 ]
 
 
