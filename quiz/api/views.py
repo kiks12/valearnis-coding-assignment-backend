@@ -1,5 +1,5 @@
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, APIView
+from rest_framework.decorators import APIView
 from rest_framework import status
 from .serializers import ChoiceSerializer, QuestionSerializer, AnswerSerializer, QuizSerializer, SubmittedAnswerSerializer
 from base.models import Quiz, Question, SubmittedAnswer
