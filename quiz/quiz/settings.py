@@ -26,7 +26,8 @@ SECRET_KEY = 'django-insecure-ss4*@@o%!jce=nm=k@z!9*x3nepor5fp_lt4t55qp@$3nlw_2s
 DEBUG = True
 
 ALLOWED_HOSTS = [
-  "https://francisjames11.pythonanywhere.com"
+  "francisjames11.pythonanywhere.com",
+  "localhost"
 ]
 
 
@@ -78,10 +79,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'quiz.wsgi.application'
-
-ALLOWED_HOSTS = [
-  "https://francisjames11.pythonanywhere.com"
-]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
